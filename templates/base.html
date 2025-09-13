@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Finance Dashboard{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <title>{% block title %}MyFinTrack{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header class="main-header">
@@ -14,16 +15,16 @@
             <a href="{{ url_for('dashboard') }}" class="logo">MyFinTrack</a>
             <ul>
                 <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
-                <li><a href="{{ url_for('transactions_page') }}">Transactions</a></li>
+                <li><a href="{{ url_for('income_page') }}">Income</a></li>
+                <li><a href="{{ url_for('expenses_page') }}">Expenses</a></li>
                 <li><a href="{{ url_for('investments_page') }}">Investments</a></li>
-                <li><a href="{{ url_for('consolidated_view') }}">Consolidated View</a></li>
+                <li><a href="{{ url_for('transactions_view') }}">Transactions</a></li>
                 <li><a href="{{ url_for('export_excel') }}" class="btn btn-secondary">Export</a></li>
             </ul>
         </nav>
     </header>
 
     <main class="container">
-        <!-- Flash messages display -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -33,12 +34,11 @@
                 </div>
             {% endif %}
         {% endwith %}
-
         {% block content %}{% endblock %}
     </main>
-
+    
     <footer class="main-footer">
-        <p>&copy; 2025 MyFinTrack - Your Personal Finance Dashboard.</p>
+        <p>&copy; 2025 MyFinTrack. All rights reserved.</p>
     </footer>
 </body>
 </html>

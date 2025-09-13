@@ -4,42 +4,48 @@
 
 {% block content %}
 <section class="content-block">
-    <h2>Add New Transaction</h2>
-    <form class="data-form" method="POST" action="{{ url_for('transactions_page') }}">
+    <h2>All Transactions</h2>
+    <p class="subtitle">A consolidated log of all your income, expenses, and investments. Use the filters to narrow down the date range.</p>
+
+    <!-- Date Filter Form -->
+    <form class="filter-form" method="GET" action="{{ url_for('transactions_view') }}">
         <div class="form-group">
-            <label for="date">Date</label>
-            <input type="date" id="date" name="date" value="{{ today_date }}" required>
+            <label for="start_date">Start Date</label>
+            <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
         </div>
         <div class="form-group">
-            <label for="description">Description</label>
-            <input type="text" id="description" name="description" placeholder="e.g., Monthly Salary, Groceries" required>
+            <label for="end_date">End Date</label>
+            <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
         </div>
-        <div class="form-group">
-            <label for="category">Category</label>
-            <select id="category" name="category" required>
-                <option value="" disabled selected>Select a category</option>
-                {% for category in categories %}
-                    <option value="{{ category }}">{{ category }}</option>
-                {% endfor %}
-            </select>
+        <div class="filter-buttons">
+            <button type="submit" class="btn btn-secondary">Filter by Date</button>
+            <a href="{{ url_for('transactions_view') }}" class="btn btn-secondary">Clear Filter</a>
         </div>
-        <div class="form-group">
-            <label for="type">Type</label>
-            <select id="type" name="type" required>
-                <option value="Income">Income</option>
-                <option value="Expense">Expense</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="amount">Amount (₹)</label>
-            <input type="number" step="0.01" id="amount" name="amount" required>
-        </div>
-        <button type="submit" class="btn btn-secondary">Add Transaction</button>
     </form>
 </section>
 
+<!-- Summary Cards -->
 <section class="content-block">
-    <h2>Transaction History</h2>
+     <h2>Summary for Selected Period</h2>
+    <div class="summary-cards">
+        <div class="card">
+            <h3>Total Income</h3>
+            <p class="income-text">₹ {{ "{:,.2f}".format(total_income) }}</p>
+        </div>
+        <div class="card">
+            <h3>Total Expenses</h3>
+            <p class="expense-text">₹ {{ "{:,.2f}".format(total_expenses) }}</p>
+        </div>
+        <div class="card">
+            <h3>Total Invested</h3>
+            <p>₹ {{ "{:,.2f}".format(total_invested) }}</p>
+        </div>
+    </div>
+</section>
+
+
+<section class="content-block">
+    <h2>Activity History</h2>
     <div class="table-container">
         <table>
             <thead>
@@ -53,25 +59,31 @@
                 </tr>
             </thead>
             <tbody>
-                {% for transaction in transactions %}
+                {% for activity in activities %}
                 <tr>
-                    <td>{{ transaction.date }}</td>
-                    <td>{{ transaction.description }}</td>
-                    <td>{{ transaction.category }}</td>
-                    <td>{{ transaction.type }}</td>
-                    <td class="{{ 'income-text' if transaction.type == 'Income' else 'expense-text' }}">
-                        {{ "{:,.2f}".format(transaction.amount) }}
+                    <td>{{ activity.date }}</td>
+                    <td>{{ activity.description }}</td>
+                    <td>{{ activity.category }}</td>
+                    <td>{{ activity.type }}</td>
+                    <td class="{{ 'income-text' if activity.amount > 0 else 'expense-text' }}">
+                        {{ "{:,.2f}".format(activity.amount) }}
                     </td>
                     <td>
-                        {% if transaction.id %}
-                        <form method="POST" action="{{ url_for('delete_transaction', transaction_id=transaction.id) }}" onsubmit="return confirm('Are you sure you want to delete this entry?');">
-                            <button type="submit" class="btn btn-danger">Delete</button>
-                        </form>
+                        {% if activity.id %}
+                            {% if activity.source == 'transaction' %}
+                                <form method="POST" action="{{ url_for('delete_transaction', transaction_id=activity.id) }}" onsubmit="return confirm('Are you sure you want to delete this transaction?');">
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </form>
+                            {% elif activity.source == 'investment' %}
+                                <form method="POST" action="{{ url_for('delete_investment', investment_id=activity.id) }}" onsubmit="return confirm('Are you sure you want to delete this investment?');">
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </form>
+                            {% endif %}
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6">No transactions found.</td></tr>
+                <tr><td colspan="6">No activities found for the selected period.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
