@@ -1,7 +1,7 @@
 import os
 import json
 import io
-import uuid # Import the uuid library
+import uuid
 from datetime import datetime, timedelta
 import pandas as pd
 import yfinance as yf
@@ -16,6 +16,14 @@ app.secret_key = 'your_super_secret_key_for_flashing' # Important for flashing m
 DATA_DIR = 'data'
 TRANSACTIONS_FILE = os.path.join(DATA_DIR, 'transactions.json')
 INVESTMENTS_FILE = os.path.join(DATA_DIR, 'investments.json')
+
+# --- PREDEFINED CATEGORIES ---
+TRANSACTION_CATEGORIES = [
+    "Salary", "Freelance", "Investment Income", "Other Income",
+    "Rent", "Groceries", "Utilities", "Transportation", "Dining Out",
+    "Entertainment", "Shopping", "Health & Wellness", "Education", "Travel",
+    "Investment", "Charity", "Other Expense"
+]
 
 # --- HELPER FUNCTIONS ---
 def setup_data_files():
@@ -45,21 +53,17 @@ def get_historical_price(ticker, date_str):
         return 1.0 # For FDs, where price is the amount
     try:
         start_date = datetime.strptime(date_str, '%Y-%m-%d')
-        # yfinance can be sensitive; check a small window for the date.
         end_date = start_date + timedelta(days=2) 
         
         stock_history = yf.download(ticker, start=start_date.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'), progress=False)
         
         if stock_history.empty:
-            # Fallback for weekends/holidays: search up to 4 days prior
             prev_day_start = start_date - timedelta(days=4)
             stock_history = yf.download(ticker, start=prev_day_start.strftime('%Y-%m-%d'), end=end_date.strftime('%Y-%m-%d'), progress=False)
             if stock_history.empty:
                 return None
-            # Return the last available price as a float
             return float(stock_history['Close'].iloc[-1])
         
-        # Return the first available price as a float to fix the error
         return float(stock_history['Close'].iloc[0])
     except Exception as e:
         print(f"Could not fetch historical price for {ticker} on {date_str}: {e}")
@@ -68,10 +72,9 @@ def get_historical_price(ticker, date_str):
 def get_live_price(ticker):
     """Fetch the last closing price for a given ticker."""
     if not ticker or ticker.lower() == 'n/a':
-        return 1.0 # For FDs or manual entries
+        return 1.0
     try:
         stock = yf.Ticker(ticker)
-        # Use 'previousClose' for reliability as 'regularMarketPrice' is only available during market hours
         price = stock.info.get('previousClose', stock.info.get('regularMarketPrice'))
         return float(price) if price else 0.0
     except Exception as e:
@@ -83,7 +86,6 @@ def enrich_investments_data(investments):
     enriched = []
     for inv in investments:
         current_price = get_live_price(inv['ticker'])
-        purchase_price = float(inv.get('purchase_price', 0))
         units = float(inv.get('units', 0))
         
         current_value = units * current_price if current_price else 0
@@ -95,7 +97,7 @@ def enrich_investments_data(investments):
         tax_status = "N/A"
         if inv['type'] == 'Stock':
             tax_status = "LTCG" if holding_months > 12 else "STCG"
-        elif inv['type'] == 'Mutual Fund': # Assumes equity fund rules
+        elif inv['type'] == 'Mutual Fund':
             tax_status = "LTCG" if holding_months > 12 else "STCG"
             
         inv_copy = inv.copy()
@@ -172,10 +174,11 @@ def dashboard():
 def transactions_page():
     """Page to view and add transactions."""
     transactions = load_data(TRANSACTIONS_FILE)
+    today_date = datetime.now().strftime('%Y-%m-%d')
     
     if request.method == 'POST':
         new_trans = {
-            'id': str(uuid.uuid4()), # Add unique ID
+            'id': str(uuid.uuid4()),
             'date': request.form['date'],
             'description': request.form['description'],
             'category': request.form['category'],
@@ -188,12 +191,16 @@ def transactions_page():
         return redirect(url_for('transactions_page'))
         
     sorted_transactions = sorted(transactions, key=lambda x: x['date'], reverse=True)
-    return render_template('transactions.html', transactions=sorted_transactions)
+    return render_template('transactions.html', 
+                           transactions=sorted_transactions, 
+                           categories=TRANSACTION_CATEGORIES,
+                           today_date=today_date)
 
 @app.route('/investments', methods=['GET', 'POST'])
 def investments_page():
     """Page to view and add investments."""
     investments = load_data(INVESTMENTS_FILE)
+    today_date = datetime.now().strftime('%Y-%m-%d')
     
     if request.method == 'POST':
         purchase_date = request.form['purchase_date']
@@ -203,13 +210,13 @@ def investments_page():
         purchase_price = get_historical_price(ticker, purchase_date)
         
         if purchase_price is None:
-            flash(f'Error: Could not find historical price for "{ticker}" on {purchase_date}. Please check the ticker and date.', 'danger')
+            flash(f'Error: Could not find historical price for "{ticker}" on {purchase_date}.', 'danger')
             return redirect(url_for('investments_page'))
 
         units = amount_invested / purchase_price if purchase_price > 0 else 0
         
         new_inv = {
-            'id': str(uuid.uuid4()), # Add unique ID
+            'id': str(uuid.uuid4()),
             'purchase_date': purchase_date,
             'name': request.form['name'],
             'ticker': ticker,
@@ -224,7 +231,9 @@ def investments_page():
         return redirect(url_for('investments_page'))
         
     enriched_investments = enrich_investments_data(investments)
-    return render_template('investments.html', investments=enriched_investments)
+    return render_template('investments.html', 
+                           investments=enriched_investments,
+                           today_date=today_date)
 
 @app.route('/consolidated_view')
 def consolidated_view():
@@ -259,8 +268,8 @@ def consolidated_view():
 
     for t in filtered_transactions:
         all_activities.append({
-            'id': t.get('id'), # Pass ID
-            'source': 'transaction', # Identify source
+            'id': t.get('id'),
+            'source': 'transaction',
             'date': t['date'],
             'description': t['description'],
             'category': t['category'],
@@ -274,8 +283,8 @@ def consolidated_view():
 
     for i in filtered_investments:
         all_activities.append({
-            'id': i.get('id'), # Pass ID
-            'source': 'investment', # Identify source
+            'id': i.get('id'),
+            'source': 'investment',
             'date': i['purchase_date'],
             'description': i['name'],
             'category': 'Investment',
@@ -294,7 +303,7 @@ def consolidated_view():
                            start_date=start_date_str,
                            end_date=end_date_str)
 
-# --- NEW DELETE ROUTES ---
+# --- DELETE ROUTES ---
 
 @app.route('/delete_transaction/<transaction_id>', methods=['POST'])
 def delete_transaction(transaction_id):
@@ -303,7 +312,6 @@ def delete_transaction(transaction_id):
     transactions = [t for t in transactions if t.get('id') != transaction_id]
     save_data(transactions, TRANSACTIONS_FILE)
     flash('Transaction deleted successfully.', 'success')
-    # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('transactions_page'))
 
 @app.route('/delete_investment/<investment_id>', methods=['POST'])
