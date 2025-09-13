@@ -223,6 +223,76 @@ def investments_page():
     enriched_investments = enrich_investments_data(investments)
     return render_template('investments.html', investments=enriched_investments)
 
+@app.route('/consolidated_view')
+def consolidated_view():
+    """A consolidated view of all financial data with date filtering."""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+
+    # Convert string dates to datetime objects for comparison
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
+
+    transactions = load_data(TRANSACTIONS_FILE)
+    investments = load_data(INVESTMENTS_FILE)
+    
+    # Filter transactions
+    filtered_transactions = [
+        t for t in transactions if (
+            (not start_date or datetime.strptime(t['date'], '%Y-%m-%d') >= start_date) and
+            (not end_date or datetime.strptime(t['date'], '%Y-%m-%d') <= end_date)
+        )
+    ]
+    
+    # Filter investments
+    filtered_investments = [
+        i for i in investments if (
+            (not start_date or datetime.strptime(i['purchase_date'], '%Y-%m-%d') >= start_date) and
+            (not end_date or datetime.strptime(i['purchase_date'], '%Y-%m-%d') <= end_date)
+        )
+    ]
+
+    # Combine and sort all activities
+    all_activities = []
+    total_income = 0
+    total_expenses = 0
+    total_invested = 0
+
+    for t in filtered_transactions:
+        all_activities.append({
+            'date': t['date'],
+            'description': t['description'],
+            'category': t['category'],
+            'type': t['type'],
+            'amount': t['amount']
+        })
+        if t['type'] == 'Income':
+            total_income += t['amount']
+        else:
+            total_expenses += t['amount']
+
+    for i in filtered_investments:
+        all_activities.append({
+            'date': i['purchase_date'],
+            'description': i['name'],
+            'category': 'Investment',
+            'type': 'Investment',
+            'amount': -i['amount_invested'] # Investments are outflows
+        })
+        total_invested += i['amount_invested']
+    
+    # Sort all activities by date
+    all_activities.sort(key=lambda x: x['date'], reverse=True)
+    
+    return render_template('consolidated_view.html', 
+                           activities=all_activities,
+                           total_income=total_income,
+                           total_expenses=abs(total_expenses),
+                           total_invested=total_invested,
+                           start_date=start_date_str,
+                           end_date=end_date_str)
+
+
 @app.route('/export')
 def export_excel():
     """Export all data to an Excel file."""

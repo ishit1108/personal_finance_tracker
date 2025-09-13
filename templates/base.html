@@ -4,30 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Finance Dashboard{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <nav>
-        <div class="nav-container">
-            <a href="{{ url_for('dashboard') }}" class="nav-brand">Finance Tracker</a>
+    <header class="main-header">
+        <nav class="main-nav">
+            <a href="{{ url_for('dashboard') }}" class="logo">MyFinTrack</a>
             <ul>
                 <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
                 <li><a href="{{ url_for('transactions_page') }}">Transactions</a></li>
                 <li><a href="{{ url_for('investments_page') }}">Investments</a></li>
-                <li><a href="{{ url_for('export_excel') }}" class="btn-export">Export to Excel</a></li>
+                <li><a href="{{ url_for('consolidated_view') }}">Consolidated View</a></li>
+                <li><a href="{{ url_for('export_excel') }}" class="btn btn-secondary">Export</a></li>
             </ul>
-        </div>
-    </nav>
+        </nav>
+    </header>
+
     <main class="container">
+        <!-- Flash messages display -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
+                <div class="flash-messages">
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    <div class="flash {{ category }}">{{ message }}</div>
                 {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
+
         {% block content %}{% endblock %}
     </main>
+
+    <footer class="main-footer">
+        <p>&copy; 2025 MyFinTrack - Your Personal Finance Dashboard.</p>
+    </footer>
 </body>
 </html>
+
