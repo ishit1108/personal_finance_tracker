@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="header">
+    <h1>Financial Overview</h1>
+    <p>Your complete financial picture at a glance.</p>
+</section>
+
+<section class="kpi-cards">
+    <div class="card">
+        <h3>Overall Net Worth</h3>
+        <p>₹ {{ "{:,.2f}".format(net_worth) }}</p>
+    </div>
+    <div class="card">
+        <h3>Portfolio Value</h3>
+        <p>₹ {{ "{:,.2f}".format(portfolio_value) }}</p>
+    </div>
+    <div class="card">
+        <h3>Est. Bank Balance</h3>
+        <p>₹ {{ "{:,.2f}".format(bank_balance) }}</p>
+    </div>
+</section>
+
+<section class="charts-section">
+    <div class="chart-container">
+        <h2>Spending by Category</h2>
+        <canvas id="spendingChart"></canvas>
+    </div>
+    <!-- You can add more chart containers here -->
+</section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const spendingData = JSON.parse('{{ spend_categories_data | safe }}');
+        const ctx = document.getElementById('spendingChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(spendingData),
+                datasets: [{
+                    label: 'Spending',
+                    data: Object.values(spendingData),
+                    backgroundColor: [
+                        '#2ecc71', '#3498db', '#9b59b6', '#f1c40f',
+                        '#e67e22', '#e74c3c', '#1abc9c', '#34495e'
+                    ],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Investments{% endblock %}
+
+{% block content %}
+<section class="content-block">
+    <h2>Log New Investment</h2>
+    <form action="{{ url_for('investments_page') }}" method="post" class="data-form">
+        <div class="form-group"><label for="purchase_date">Purchase Date</label><input type="date" id="purchase_date" name="purchase_date" required></div>
+        <div class="form-group"><label for="name">Investment Name</label><input type="text" id="name" name="name" required placeholder="e.g., HDFC Bank, Parag Parikh Flexi Cap"></div>
+        <div class="form-group"><label for="ticker">Ticker Symbol</label><input type="text" id="ticker" name="ticker" required placeholder="e.g., HDFCBANK.NS, 0P0000X55D.BO (or N/A for FD)"></div>
+        <div class="form-group"><label for="type">Type</label><select id="type" name="type" required><option value="Stock">Stock</option><option value="Mutual Fund">Mutual Fund</option><option value="FD">FD</option></select></div>
+        <div class="form-group"><label for="amount_invested">Total Amount Invested (₹)</label><input type="number" id="amount_invested" name="amount_invested" step="0.01" required></div>
+        <div class="form-group"><label for="purchase_price">Purchase Price / NAV</label><input type="number" id="purchase_price" name="purchase_price" step="0.01" required></div>
+        <button type="submit" class="btn">Add Investment</button>
+    </form>
+</section>
+
+<section class="content-block">
+    <h2>Investment Portfolio</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Invested (₹)</th>
+                    <th>Current Value (₹)</th>
+                    <th>Gain/Loss (₹)</th>
+                    <th>Current Price</th>
+                    <th>Holding (Months)</th>
+                    <th>Tax Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in investments %}
+                <tr>
+                    <td>{{ inv.name }}</td>
+                    <td>{{ inv.type }}</td>
+                    <td>{{ "{:,.2f}".format(inv.amount_invested) }}</td>
+                    <td>{{ "{:,.2f}".format(inv.current_value) }}</td>
+                    <td class="{{ 'income-text' if inv.gain_loss >= 0 else 'expense-text' }}">{{ "{:,.2f}".format(inv.gain_loss) }}</td>
+                    <td>{{ "{:,.2f}".format(inv.current_price) }}</td>
+                    <td>{{ inv.holding_months }}</td>
+                    <td>{{ inv.tax_status }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8">No investments yet. Add one above!</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
