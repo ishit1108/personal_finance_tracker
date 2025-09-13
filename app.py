@@ -1,6 +1,7 @@
 import os
 import json
 import io
+import uuid # Import the uuid library
 from datetime import datetime, timedelta
 import pandas as pd
 import yfinance as yf
@@ -108,7 +109,7 @@ def enrich_investments_data(investments):
         enriched.append(inv_copy)
     return enriched
 
-# --- NEW API ROUTE FOR TICKER SEARCH ---
+# --- API ROUTE FOR TICKER SEARCH ---
 @app.route('/api/search')
 def search_ticker():
     """API endpoint to search for tickers based on a query string."""
@@ -174,6 +175,7 @@ def transactions_page():
     
     if request.method == 'POST':
         new_trans = {
+            'id': str(uuid.uuid4()), # Add unique ID
             'date': request.form['date'],
             'description': request.form['description'],
             'category': request.form['category'],
@@ -207,6 +209,7 @@ def investments_page():
         units = amount_invested / purchase_price if purchase_price > 0 else 0
         
         new_inv = {
+            'id': str(uuid.uuid4()), # Add unique ID
             'purchase_date': purchase_date,
             'name': request.form['name'],
             'ticker': ticker,
@@ -229,14 +232,12 @@ def consolidated_view():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
 
-    # Convert string dates to datetime objects for comparison
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
 
     transactions = load_data(TRANSACTIONS_FILE)
     investments = load_data(INVESTMENTS_FILE)
     
-    # Filter transactions
     filtered_transactions = [
         t for t in transactions if (
             (not start_date or datetime.strptime(t['date'], '%Y-%m-%d') >= start_date) and
@@ -244,7 +245,6 @@ def consolidated_view():
         )
     ]
     
-    # Filter investments
     filtered_investments = [
         i for i in investments if (
             (not start_date or datetime.strptime(i['purchase_date'], '%Y-%m-%d') >= start_date) and
@@ -252,7 +252,6 @@ def consolidated_view():
         )
     ]
 
-    # Combine and sort all activities
     all_activities = []
     total_income = 0
     total_expenses = 0
@@ -260,6 +259,8 @@ def consolidated_view():
 
     for t in filtered_transactions:
         all_activities.append({
+            'id': t.get('id'), # Pass ID
+            'source': 'transaction', # Identify source
             'date': t['date'],
             'description': t['description'],
             'category': t['category'],
@@ -273,15 +274,16 @@ def consolidated_view():
 
     for i in filtered_investments:
         all_activities.append({
+            'id': i.get('id'), # Pass ID
+            'source': 'investment', # Identify source
             'date': i['purchase_date'],
             'description': i['name'],
             'category': 'Investment',
             'type': 'Investment',
-            'amount': -i['amount_invested'] # Investments are outflows
+            'amount': -i['amount_invested']
         })
         total_invested += i['amount_invested']
     
-    # Sort all activities by date
     all_activities.sort(key=lambda x: x['date'], reverse=True)
     
     return render_template('consolidated_view.html', 
@@ -292,6 +294,26 @@ def consolidated_view():
                            start_date=start_date_str,
                            end_date=end_date_str)
 
+# --- NEW DELETE ROUTES ---
+
+@app.route('/delete_transaction/<transaction_id>', methods=['POST'])
+def delete_transaction(transaction_id):
+    """Delete a specific transaction by its ID."""
+    transactions = load_data(TRANSACTIONS_FILE)
+    transactions = [t for t in transactions if t.get('id') != transaction_id]
+    save_data(transactions, TRANSACTIONS_FILE)
+    flash('Transaction deleted successfully.', 'success')
+    # Redirect back to the page the user was on
+    return redirect(request.referrer or url_for('transactions_page'))
+
+@app.route('/delete_investment/<investment_id>', methods=['POST'])
+def delete_investment(investment_id):
+    """Delete a specific investment by its ID."""
+    investments = load_data(INVESTMENTS_FILE)
+    investments = [i for i in investments if i.get('id') != investment_id]
+    save_data(investments, INVESTMENTS_FILE)
+    flash('Investment deleted successfully.', 'success')
+    return redirect(request.referrer or url_for('investments_page'))
 
 @app.route('/export')
 def export_excel():
@@ -301,7 +323,6 @@ def export_excel():
     enriched_investments = enrich_investments_data(investments)
 
     output = io.BytesIO()
-    # Corrected engine from 'openxl' to 'openpyxl'
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         pd.DataFrame(transactions).to_excel(writer, sheet_name='Transactions', index=False)
         pd.DataFrame(enriched_investments).to_excel(writer, sheet_name='Investment_Portfolio', index=False)
