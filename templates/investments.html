@@ -3,15 +3,53 @@
 {% block title %}Investments{% endblock %}
 
 {% block content %}
+<style>
+    /* Styles for the autocomplete dropdown */
+    .autocomplete-results {
+        position: absolute;
+        background-color: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        width: 100%;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border-radius: 0 0 5px 5px;
+    }
+    .autocomplete-item {
+        padding: 10px;
+        cursor: pointer;
+    }
+    .autocomplete-item:hover {
+        background-color: #f1f1f1;
+    }
+    .autocomplete-item .ticker {
+        font-weight: bold;
+        color: #3498db;
+        margin-left: 8px;
+    }
+</style>
+
 <section class="content-block">
     <h2>Log New Investment</h2>
     <form action="{{ url_for('investments_page') }}" method="post" class="data-form">
         <div class="form-group"><label for="purchase_date">Purchase Date</label><input type="date" id="purchase_date" name="purchase_date" required></div>
-        <div class="form-group"><label for="name">Investment Name</label><input type="text" id="name" name="name" required placeholder="e.g., HDFC Bank, Parag Parikh Flexi Cap"></div>
-        <div class="form-group"><label for="ticker">Ticker Symbol</label><input type="text" id="ticker" name="ticker" required placeholder="e.g., HDFCBANK.NS, 0P0000X55D.BO (or N/A for FD)"></div>
+        
+        <!-- Name and Ticker fields now wrapped for positioning the results -->
+        <div class="form-group" style="position: relative;">
+            <label for="name">Investment Name</label>
+            <input type="text" id="name" name="name" required placeholder="Type to search..." autocomplete="off">
+            <div id="ticker-results" class="autocomplete-results"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="ticker">Ticker Symbol</label>
+            <input type="text" id="ticker" name="ticker" required placeholder="Auto-filled from search">
+        </div>
+
         <div class="form-group"><label for="type">Type</label><select id="type" name="type" required><option value="Stock">Stock</option><option value="Mutual Fund">Mutual Fund</option><option value="FD">FD</option></select></div>
         <div class="form-group"><label for="amount_invested">Total Amount Invested (₹)</label><input type="number" id="amount_invested" name="amount_invested" step="0.01" required></div>
-        <div class="form-group"><label for="purchase_price">Purchase Price / NAV</label><input type="number" id="purchase_price" name="purchase_price" step="0.01" required></div>
         <button type="submit" class="btn">Add Investment</button>
     </form>
 </section>
@@ -27,6 +65,7 @@
                     <th>Invested (₹)</th>
                     <th>Current Value (₹)</th>
                     <th>Gain/Loss (₹)</th>
+                    <th>Purchase Price</th>
                     <th>Current Price</th>
                     <th>Holding (Months)</th>
                     <th>Tax Status</th>
@@ -40,15 +79,68 @@
                     <td>{{ "{:,.2f}".format(inv.amount_invested) }}</td>
                     <td>{{ "{:,.2f}".format(inv.current_value) }}</td>
                     <td class="{{ 'income-text' if inv.gain_loss >= 0 else 'expense-text' }}">{{ "{:,.2f}".format(inv.gain_loss) }}</td>
+                    <td>{{ "{:,.2f}".format(inv.purchase_price) }}</td>
                     <td>{{ "{:,.2f}".format(inv.current_price) }}</td>
                     <td>{{ inv.holding_months }}</td>
                     <td>{{ inv.tax_status }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8">No investments yet. Add one above!</td></tr>
+                <tr><td colspan="9">No investments yet. Add one above!</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nameInput = document.getElementById('name');
+    const tickerInput = document.getElementById('ticker');
+    const resultsContainer = document.getElementById('ticker-results');
+    let debounceTimer;
+
+    nameInput.addEventListener('input', function() {
+        const query = nameInput.value;
+        
+        clearTimeout(debounceTimer);
+        resultsContainer.innerHTML = '';
+
+        if (query.length < 3) {
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch(`/api/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsContainer.innerHTML = ''; // Clear again in case of race conditions
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.classList.add('autocomplete-item');
+                            itemDiv.innerHTML = `<span>${item.name}</span><span class="ticker">${item.ticker}</span>`;
+                            
+                            itemDiv.addEventListener('click', function() {
+                                nameInput.value = item.name;
+                                tickerInput.value = item.ticker;
+                                resultsContainer.innerHTML = '';
+                            });
+                            
+                            resultsContainer.appendChild(itemDiv);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error fetching ticker:', error));
+        }, 300); // 300ms delay
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!nameInput.contains(e.target)) {
+            resultsContainer.innerHTML = '';
+        }
+    });
+});
+</script>
 {% endblock %}
+
